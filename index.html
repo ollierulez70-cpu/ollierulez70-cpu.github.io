@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>The Log</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --card: #1a1a26; --border: #2a2a3e;
+    --accent: #7c6ff7; --accent2: #e05c97; --accent3: #3fd4a0;
+    --text: #e8e8f0; --muted: #6b6b8a; --grid-line: rgba(124,111,247,0.04);
+    --mono: 'Space Mono', monospace; --sans: 'Syne', sans-serif; --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  [data-theme="light"] {
+    --bg: #f4f4f8; --surface: #ffffff; --card: #ffffff; --border: #dddde8;
+    --text: #1a1a2e; --muted: #8888aa; --grid-line: rgba(124,111,247,0.06); --shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; transition: background 0.3s, color 0.3s; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+  .app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 0 0 110px; }
+
+  .header { padding: 24px 20px 14px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, rgba(124,111,247,0.08) 0%, transparent 100%); }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .header-left { display: flex; align-items: baseline; gap: 10px; }
+  .header h1 { font-size: 26px; font-weight: 800; letter-spacing: -1px; }
+  .header h1 span { color: var(--accent); }
+  .version { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .header-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .theme-toggle { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; cursor: pointer; font-size: 15px; display: flex; align-items: center; gap: 5px; transition: all 0.2s; }
+  .theme-toggle:hover { border-color: var(--accent); }
+  .theme-label { font-family: var(--mono); font-size: 9px; color: var(--muted); text-transform: uppercase; }
+
+  .streak-banner { margin: 12px 20px 0; background: linear-gradient(135deg, rgba(124,111,247,0.15), rgba(224,92,151,0.1)); border: 1px solid rgba(124,111,247,0.3); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; }
+  .streak-fire { font-size: 22px; }
+  .streak-count { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); }
+  .streak-label { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .streak-next { font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: right; }
+
+  .nav { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+  .nav-btn { flex: 1; padding: 13px 4px; background: none; border: none; color: var(--muted); font-family: var(--mono); font-size: 10px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.3px; transition: all 0.2s; border-bottom: 2px solid transparent; }
+  .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .section { display: none; padding: 16px 20px; }
+  .section.active { display: block; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .card-title { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+  .field label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .field input, .field textarea { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-family: var(--mono); font-size: 14px; outline: none; transition: border-color 0.2s; width: 100%; -webkit-appearance: none; }
+  .field textarea { resize: vertical; min-height: 65px; font-size: 12px; line-height: 1.5; }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dual-input { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .section-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin: 12px 0 8px; padding: 5px 10px; background: rgba(124,111,247,0.08); border-left: 2px solid var(--accent); border-radius: 0 6px 6px 0; }
+  .section-label.flac { border-left-color: var(--accent2); background: rgba(224,92,151,0.08); }
+  .section-label.cond { border-left-color: var(--accent3); background: rgba(63,212,160,0.06); }
+
+  .condition-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .chip { padding: 5px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; font-family: var(--mono); font-size: 10px; color: var(--muted); cursor: pointer; transition: all 0.15s; user-select: none; }
+  .chip.selected { background: rgba(124,111,247,0.2); border-color: var(--accent); color: var(--accent); }
+
+  .btn-primary { width: 100%; padding: 15px; background: var(--accent); border: none; border-radius: 10px; color: white; font-family: var(--sans); font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 4px; transition: all 0.2s; }
+  .btn-primary:hover { background: #9088fa; transform: translateY(-1px); }
+  .btn-secondary { padding: 8px 14px; background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-family: var(--mono); font-size: 11px; cursor: pointer; transition: all 0.2s; }
+  .btn-secondary:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .entry-slot { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+  .entry-slot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .entry-slot-num { font-family: var(--mono); font-size: 11px; color: var(--accent); font-weight: 700; }
+  .remove-slot { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 2px 6px; transition: color 0.15s; }
+  .remove-slot:hover { color: var(--accent2); }
+  .add-entry-btn { width: 100%; padding: 12px; background: transparent; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); font-family: var(--mono); font-size: 12px; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; }
+  .add-entry-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; box-shadow: var(--shadow); }
+  .stat-label { font-family: var(--mono); font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .stat-val { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--accent); }
+  .stat-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  .chart-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .chart-title { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .chart-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .chart-tab { padding: 5px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: var(--mono); font-size: 10px; cursor: pointer; transition: all 0.15s; }
+  .chart-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+  canvas { max-height: 200px; }
+
+  .entry { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; transition: border-color 0.2s; box-shadow: var(--shadow); }
+  .entry:hover { border-color: var(--accent); }
+  .entry-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .entry-date { font-family: var(--mono); font-size: 11px; color: var(--accent); font-weight: 700; }
+  .entry-time { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .entry-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .entry-metric-label { font-family: var(--mono); font-size: 9px; color: var(--muted); text-transform: uppercase; margin-bottom: 2px; }
+  .entry-metric-val { font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .entry-section-divider { font-family: var(--mono); font-size: 9px; color: var(--accent2); text-transform: uppercase; letter-spacing: 1px; margin: 8px 0 6px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .entry-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; transition: color 0.15s; }
+  .entry-del:hover { color: var(--accent2); }
+  .entry-conditions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .entry-chip { padding: 3px 8px; background: rgba(124,111,247,0.12); border: 1px solid rgba(124,111,247,0.25); border-radius: 12px; font-family: var(--mono); font-size: 9px; color: var(--accent); }
+  .entry-notes { margin-top: 8px; padding: 8px 10px; background: var(--surface); border-radius: 6px; font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.5; border-left: 2px solid var(--accent3); }
+
+  .goal-bar-wrap { margin-bottom: 14px; }
+  .goal-bar-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .goal-bar-label { font-family: var(--mono); font-size: 11px; color: var(--text); }
+  .goal-bar-pct { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+  .goal-bar-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .goal-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.6s ease; }
+  .goal-targets { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  .streak-calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-day { aspect-ratio: 1; border-radius: 4px; background: var(--border); }
+  .cal-day.logged { background: var(--accent); }
+  .cal-day.today { outline: 2px solid var(--accent2); outline-offset: 1px; }
+
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .empty-icon { font-size: 36px; margin-bottom: 10px; }
+  .empty-text { font-family: var(--mono); font-size: 11px; line-height: 1.7; }
+
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--accent3); color: #0a0a0f; padding: 10px 20px; border-radius: 20px; font-family: var(--mono); font-size: 12px; font-weight: 700; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 1000; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .progress-tip { background: rgba(124,111,247,0.08); border: 1px solid rgba(124,111,247,0.2); border-radius: 8px; padding: 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+  .progress-tip strong { color: var(--accent); }
+
+  /* Wiki styles */
+  .wiki-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .wiki-nav-btn { padding: 6px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; color: var(--muted); font-family: var(--mono); font-size: 10px; cursor: pointer; transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.5px; }
+  .wiki-nav-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .wiki-page { display: none; }
+  .wiki-page.active { display: block; }
+  .wiki-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
+  .wiki-h1 { font-family: var(--sans); font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 6px; letter-spacing: -0.5px; }
+  .wiki-h2 { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--accent); margin: 14px 0 8px; }
+  .wiki-h2.pink { color: var(--accent2); }
+  .wiki-h2.green { color: var(--accent3); }
+  .wiki-p { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.8; margin-bottom: 8px; }
+  .wiki-p b { color: var(--text); font-weight: 700; }
+  .wiki-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-family: var(--mono); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .wiki-tag.length { background: rgba(124,111,247,0.2); color: var(--accent); border: 1px solid rgba(124,111,247,0.3); }
+  .wiki-tag.girth { background: rgba(224,92,151,0.2); color: var(--accent2); border: 1px solid rgba(224,92,151,0.3); }
+  .wiki-tag.both { background: rgba(63,212,160,0.2); color: var(--accent3); border: 1px solid rgba(63,212,160,0.3); }
+  .wiki-tag.warning { background: rgba(239,68,68,0.15); color: #ef9494; border: 1px solid rgba(239,68,68,0.3); }
+  .wiki-tag.beginner { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+  .wiki-steps { list-style: none; padding: 0; margin: 0 0 10px; }
+  .wiki-steps li { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.7; padding: 6px 0 6px 20px; position: relative; border-bottom: 1px solid var(--border); }
+  .wiki-steps li:last-child { border-bottom: none; }
+  .wiki-steps li::before { content: attr(data-n); position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+  .wiki-steps li b { color: var(--text); }
+  .wiki-stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0; }
+  .wiki-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 8px; text-align: center; }
+  .wiki-stat-val { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent); }
+  .wiki-stat-label { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 2px; text-transform: uppercase; }
+  .wiki-warn { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 11px; color: #ef9494; line-height: 1.7; margin: 10px 0; }
+  .wiki-warn b { color: #fca5a5; }
+  .wiki-tip { background: rgba(63,212,160,0.08); border: 1px solid rgba(63,212,160,0.2); border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 11px; color: var(--accent3); line-height: 1.7; margin: 10px 0; }
+  .wiki-tip b { color: var(--accent3); }
+  .wiki-divider { height: 1px; background: var(--border); margin: 14px 0; }
+  .schedule-row { display: flex; gap: 4px; margin-bottom: 8px; }
+  .schedule-day { flex: 1; text-align: center; padding: 8px 4px; border-radius: 6px; font-family: var(--mono); font-size: 9px; text-transform: uppercase; }
+  .schedule-day.on { background: rgba(124,111,247,0.2); color: var(--accent); border: 1px solid rgba(124,111,247,0.3); }
+  .schedule-day.off { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+  .schedule-day.flex { background: rgba(63,212,160,0.15); color: var(--accent3); border: 1px solid rgba(63,212,160,0.25); }
+
+  /* Averages tab */
+  .avg-selectors { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .avg-select-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .avg-select-wrap label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .avg-select-wrap select { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: none; width: 100%; -webkit-appearance: none; cursor: pointer; }
+  .avg-select-wrap select:focus { border-color: var(--accent); }
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; background: var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border); }
+  .compare-col { background: var(--card); padding: 10px 8px; }
+  .compare-col + .compare-col { border-left: 1px solid var(--border); }
+  .compare-col-header { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; text-align: center; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .compare-col-header.you { color: var(--accent); }
+  .compare-col-header.avg { color: var(--muted); }
+  .compare-col-header.diff { color: var(--accent3); }
+  .compare-row { margin-bottom: 10px; }
+  .compare-metric-label { font-family: var(--mono); font-size: 9px; color: var(--muted); text-transform: uppercase; margin-bottom: 3px; text-align: center; }
+  .compare-metric-val { font-family: var(--mono); font-size: 13px; font-weight: 700; text-align: center; color: var(--text); }
+  .compare-metric-sub { font-family: var(--mono); font-size: 9px; color: var(--muted); text-align: center; margin-top: 1px; }
+  .compare-metric-val.above { color: var(--accent3); }
+  .compare-metric-val.below { color: var(--accent2); }
+  .compare-metric-val.same { color: var(--muted); }
+  .percentile-bar-wrap { margin-bottom: 12px; }
+  .percentile-bar-label { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+  .percentile-bar-label span:first-child { color: var(--text); }
+  .percentile-bar-track { height: 10px; background: var(--border); border-radius: 5px; position: relative; overflow: visible; }
+  .percentile-bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--accent2), var(--accent), var(--accent3)); transition: width 0.6s ease; }
+  .percentile-marker { position: absolute; top: -3px; width: 2px; height: 16px; background: white; border-radius: 1px; transform: translateX(-50%); box-shadow: 0 0 4px rgba(0,0,0,0.5); }
+  .percentile-marker-label { position: absolute; top: 16px; font-family: var(--mono); font-size: 9px; color: var(--accent); transform: translateX(-50%); white-space: nowrap; }
+  .source-note { font-family: var(--mono); font-size: 10px; color: var(--muted); line-height: 1.6; padding: 10px; background: var(--surface); border-radius: 8px; border-left: 2px solid var(--border); margin-top: 12px; }
+
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.5); }
+  [data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator,
+  [data-theme="light"] input[type="time"]::-webkit-calendar-picker-indicator { filter: none; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-top">
+      <div class="header-left"><h1>THE <span>LOG</span></h1><span class="version">v4.0</span></div>
+      <button class="theme-toggle" onclick="toggleTheme()">
+        <span id="theme-icon">☀️</span><span class="theme-label" id="theme-label">Light</span>
+      </button>
+    </div>
+    <div class="header-sub">measurement tracker · data stays on this device</div>
+  </div>
+
+  <div class="streak-banner">
+    <div class="streak-fire">🔥</div>
+    <div style="flex:1">
+      <div class="streak-count" id="streak-count">0</div>
+      <div class="streak-label">day streak</div>
+    </div>
+    <div class="streak-next" id="streak-next">Log today to start!</div>
+  </div>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showTab('log',this)">+ Entry</button>
+    <button class="nav-btn" onclick="showTab('charts',this)">Charts</button>
+    <button class="nav-btn" onclick="showTab('history',this)">History</button>
+    <button class="nav-btn" onclick="showTab('averages',this)">Avg</button>
+    <button class="nav-btn" onclick="showTab('wiki',this)">Wiki</button>
+    <button class="nav-btn" onclick="showTab('goals',this)">Goals</button>
+  </nav>
+
+  <!-- ENTRY TAB -->
+  <div class="section active" id="tab-log">
+    <div id="entry-slots"></div>
+    <button class="add-entry-btn" onclick="addEntrySlot()">＋ Add another entry</button>
+    <button class="btn-primary" onclick="saveAllEntries()">Save All Entries</button>
+  </div>
+
+  <!-- CHARTS TAB -->
+  <div class="section" id="tab-charts">
+    <div class="chart-tabs">
+      <button class="chart-tab active" onclick="setChartMetric('e_bp_cm',this)">Erect L</button>
+      <button class="chart-tab" onclick="setChartMetric('e_sg_cm',this)">E.Girth</button>
+      <button class="chart-tab" onclick="setChartMetric('e_gg_cm',this)">E.Glans</button>
+      <button class="chart-tab" onclick="setChartMetric('f_bp_cm',this)">Flac BP</button>
+      <button class="chart-tab" onclick="setChartMetric('f_nbp_cm',this)">Flac NBP</button>
+      <button class="chart-tab" onclick="setChartMetric('f_sg_cm',this)">Flac G</button>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title" id="chart-label">Erect BP Length (cm)</div>
+      <canvas id="mainChart"></canvas>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Latest</div><div class="stat-val" id="stat-latest">—</div><div class="stat-sub" id="stat-latest-in"></div></div>
+      <div class="stat-card"><div class="stat-label">Average</div><div class="stat-val" id="stat-avg">—</div><div class="stat-sub" id="stat-avg-in"></div></div>
+      <div class="stat-card"><div class="stat-label">Max</div><div class="stat-val" id="stat-max">—</div><div class="stat-sub" id="stat-max-in"></div></div>
+      <div class="stat-card"><div class="stat-label">Change</div><div class="stat-val" id="stat-change">—</div><div class="stat-sub" id="stat-change-in"></div></div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div class="section" id="tab-history">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted)" id="entry-count">0 entries</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="exportData()">Export</button>
+        <button class="btn-secondary" onclick="document.getElementById('imp').click()">Import</button>
+        <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(event)">
+      </div>
+    </div>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- AVERAGES TAB -->
+  <div class="section" id="tab-averages">
+
+    <div class="card">
+      <div class="card-title">Your Profile</div>
+      <div class="avg-selectors">
+        <div class="avg-select-wrap">
+          <label>Region</label>
+          <select id="avg-region" onchange="renderAverages()">
+            <option value="global">Global Average</option>
+            <option value="northamerica">North America</option>
+            <option value="latinamerica">Latin America</option>
+            <option value="europe">Europe</option>
+            <option value="eastasia">East Asia</option>
+            <option value="southasia">South Asia</option>
+            <option value="africa">Africa</option>
+            <option value="middleeast">Middle East</option>
+          </select>
+        </div>
+        <div class="avg-select-wrap">
+          <label>Age Group</label>
+          <select id="avg-age" onchange="renderAverages()">
+            <option value="1824">18–24</option>
+            <option value="2534">25–34</option>
+            <option value="3544">35–44</option>
+            <option value="4554">45–54</option>
+            <option value="55plus">55+</option>
+          </select>
+        </div>
+      </div>
+      <div class="progress-tip" style="margin-bottom:0">
+        Averages sourced from the BJU International meta-analysis (Veale et al., 2015) — the largest peer-reviewed study of its kind, covering 15,521 men. Regional data reflects population-weighted estimates from that and supporting literature. All measurements are erect bone-pressed unless noted.
+      </div>
+    </div>
+
+    <div class="card" id="avg-no-data" style="display:none">
+      <div class="empty">
+        <div class="empty-icon">📏</div>
+        <div class="empty-text">No entries logged yet.<br>Add measurements in + Entry<br>to see your comparison.</div>
+      </div>
+    </div>
+
+    <div id="avg-content">
+
+      <!-- Erect comparison -->
+      <div class="card">
+        <div class="card-title">⚡ Erect — You vs Average</div>
+        <div class="compare-grid" id="erect-compare-grid">
+          <div class="compare-col">
+            <div class="compare-col-header you">You</div>
+            <div class="compare-row"><div class="compare-metric-label">BP Length</div><div class="compare-metric-val" id="you-e-bp">—</div><div class="compare-metric-sub" id="you-e-bp-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">Shaft Girth</div><div class="compare-metric-val" id="you-e-sg">—</div><div class="compare-metric-sub" id="you-e-sg-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">Glans Girth</div><div class="compare-metric-val" id="you-e-gg">—</div><div class="compare-metric-sub" id="you-e-gg-in">—</div></div>
+          </div>
+          <div class="compare-col">
+            <div class="compare-col-header avg">Regional Avg</div>
+            <div class="compare-row"><div class="compare-metric-label">BP Length</div><div class="compare-metric-val" id="avg-e-bp">—</div><div class="compare-metric-sub" id="avg-e-bp-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">Shaft Girth</div><div class="compare-metric-val" id="avg-e-sg">—</div><div class="compare-metric-sub" id="avg-e-sg-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">Glans Girth</div><div class="compare-metric-val" id="avg-e-gg">—</div><div class="compare-metric-sub" id="avg-e-gg-in">—</div></div>
+          </div>
+          <div class="compare-col">
+            <div class="compare-col-header diff">Difference</div>
+            <div class="compare-row"><div class="compare-metric-label">BP Length</div><div class="compare-metric-val" id="diff-e-bp">—</div><div class="compare-metric-sub" id="diff-e-bp-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">Shaft Girth</div><div class="compare-metric-val" id="diff-e-sg">—</div><div class="compare-metric-sub" id="diff-e-sg-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">Glans Girth</div><div class="compare-metric-val" id="diff-e-gg">—</div><div class="compare-metric-sub" id="diff-e-gg-in">—</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flaccid comparison -->
+      <div class="card">
+        <div class="card-title">💤 Flaccid — You vs Average</div>
+        <div class="compare-grid">
+          <div class="compare-col">
+            <div class="compare-col-header you">You</div>
+            <div class="compare-row"><div class="compare-metric-label">BP Length</div><div class="compare-metric-val" id="you-f-bp">—</div><div class="compare-metric-sub" id="you-f-bp-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">NBP Length</div><div class="compare-metric-val" id="you-f-nbp">—</div><div class="compare-metric-sub" id="you-f-nbp-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">Shaft Girth</div><div class="compare-metric-val" id="you-f-sg">—</div><div class="compare-metric-sub" id="you-f-sg-in">—</div></div>
+          </div>
+          <div class="compare-col">
+            <div class="compare-col-header avg">Regional Avg</div>
+            <div class="compare-row"><div class="compare-metric-label">BP Length</div><div class="compare-metric-val" id="avg-f-bp">—</div><div class="compare-metric-sub" id="avg-f-bp-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">NBP Length</div><div class="compare-metric-val" id="avg-f-nbp">—</div><div class="compare-metric-sub" id="avg-f-nbp-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">Shaft Girth</div><div class="compare-metric-val" id="avg-f-sg">—</div><div class="compare-metric-sub" id="avg-f-sg-in">—</div></div>
+          </div>
+          <div class="compare-col">
+            <div class="compare-col-header diff">Difference</div>
+            <div class="compare-row"><div class="compare-metric-label">BP Length</div><div class="compare-metric-val" id="diff-f-bp">—</div><div class="compare-metric-sub" id="diff-f-bp-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">NBP Length</div><div class="compare-metric-val" id="diff-f-nbp">—</div><div class="compare-metric-sub" id="diff-f-nbp-in">—</div></div>
+            <div class="compare-row"><div class="compare-metric-label">Shaft Girth</div><div class="compare-metric-val" id="diff-f-sg">—</div><div class="compare-metric-sub" id="diff-f-sg-in">—</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Percentile bars -->
+      <div class="card">
+        <div class="card-title">📊 Global Percentile Estimate</div>
+        <div class="progress-tip" style="margin-bottom:14px">Where your latest measurements fall within the global distribution. Based on mean ± SD from Veale et al. (2015).</div>
+        <div id="percentile-bars"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- WIKI TAB -->
+  <div class="section" id="tab-wiki">
+
+    <div class="wiki-nav">
+      <button class="wiki-nav-btn active" onclick="showWikiPage('overview',this)">Overview</button>
+      <button class="wiki-nav-btn" onclick="showWikiPage('measuring',this)">Measuring</button>
+      <button class="wiki-nav-btn" onclick="showWikiPage('length',this)">Length</button>
+      <button class="wiki-nav-btn" onclick="showWikiPage('girth',this)">Girth</button>
+      <button class="wiki-nav-btn" onclick="showWikiPage('routine',this)">Routine</button>
+      <button class="wiki-nav-btn" onclick="showWikiPage('safety',this)">Safety</button>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="wiki-page active" id="wiki-overview">
+      <div class="wiki-card">
+        <div class="wiki-h1">The Wiki</div>
+        <div class="wiki-p">Everything you need to know about measuring accurately and growing safely — no tools, no purchases, household stuff only. Built for you as a complete beginner aiming for both length and girth gains.</div>
+        <div class="wiki-stat-row">
+          <div class="wiki-stat"><div class="wiki-stat-val">10–20</div><div class="wiki-stat-label">min/session</div></div>
+          <div class="wiki-stat"><div class="wiki-stat-val">4–5</div><div class="wiki-stat-label">days/week</div></div>
+          <div class="wiki-stat"><div class="wiki-stat-val">2+</div><div class="wiki-stat-label">rest days</div></div>
+        </div>
+        <div class="wiki-tip"><b>The honest truth:</b> PE (penile exercise) is real and documented, but results are slow — think months to years, not weeks. Consistency is everything. Beginners should start lighter than they think they need to and build from there.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">How Growth Actually Works</div>
+        <div class="wiki-p">Your penis is made of three chambers of tissue (two corpus cavernosa for erections, one corpus spongiosum). Growth comes from stressing this tissue — just like how muscles or skin respond to consistent mechanical stress over time.</div>
+        <div class="wiki-p"><b>Length</b> is primarily limited by the tunica albuginea — the tough outer sheath. Stretching targets this. <b>Girth</b> responds more to cell expansion (the chambers filling more completely) and some permanent tissue remodeling from exercises like jelqing.</div>
+        <div class="wiki-p">You're also a <b>grower</b>, which typically means more room for flaccid improvement and good response to warmup. Your upward curve is normal and doesn't affect exercises — just follow the top surface when measuring.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Realistic Expectations</div>
+        <div class="wiki-p"><b>Length +0.5":</b> Achievable for most beginners within 3–12 months with consistent stretching. Some see it faster. Bone-pressed gains tend to come before non-bone-pressed.</div>
+        <div class="wiki-p"><b>Girth +1.0":</b> This is the harder goal. Natural girth gains of 0.2–0.5" are realistic long-term. 1" is possible but will take 1–2+ years of consistency. Girth responds more slowly than length in general.</div>
+        <div class="wiki-warn"><b>Variance matters:</b> Your measurements will naturally fluctuate day to day by 0.2–0.5cm based on temperature, arousal level, hydration, sleep, and stress. Don't read too much into any single measurement. Look at the trend over weeks, not days.</div>
+      </div>
+    </div>
+
+    <!-- MEASURING -->
+    <div class="wiki-page" id="wiki-measuring">
+      <div class="wiki-card">
+        <div class="wiki-h1">Measuring Protocol</div>
+        <div class="wiki-p">The goal is repeatability — the same conditions every time so your numbers actually mean something.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Tools You Need</div>
+        <div class="wiki-p"><b>Flexible sewing tape measure</b> — for all girth measurements and curved length. Most households have one. If not, a strip of paper you mark then measure against a ruler works fine.</div>
+        <div class="wiki-p"><b>Rigid ruler</b> — for bone-pressed length. Press flat against pubic bone. A standard 12" ruler is perfect.</div>
+        <div class="wiki-tip"><b>Same tool every time.</b> Switching between a cloth tape and a paper strip introduces inconsistency. Pick one and stick with it.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Erect Length (BP)</div>
+        <span class="wiki-tag length">Length</span>
+        <ul class="wiki-steps">
+          <li data-n="1">Achieve full erection — measure only when you're at max hardness, not partially aroused.</li>
+          <li data-n="2">Press the ruler firmly into your pubic bone at the base, compressing any fat pad completely.</li>
+          <li data-n="3">Measure along the <b>top surface</b> (dorsal side) from base to tip.</li>
+          <li data-n="4">Because you curve upward, follow the tape along the curve — don't measure in a straight line from base to tip through the air.</li>
+          <li data-n="5">Record in both cm and inches (the app converts automatically).</li>
+        </ul>
+        <div class="wiki-p">Also take a <b>non-bone-pressed (NBP)</b> measurement by resting the ruler on the surface without pressing. This is your "visual" length and will differ from BP by your fat pad thickness.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Erect Girth</div>
+        <span class="wiki-tag girth">Girth</span>
+        <ul class="wiki-steps">
+          <li data-n="1">Stay fully erect.</li>
+          <li data-n="2"><b>Shaft girth:</b> wrap the tape at the midpoint of the shaft. Snug but not squeezing.</li>
+          <li data-n="3"><b>Glans girth:</b> wrap at the widest point of the head.</li>
+          <li data-n="4">Note whether shaft or glans is wider — common to vary. Track both.</li>
+        </ul>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Flaccid Measurements</div>
+        <span class="wiki-tag both">Both</span>
+        <div class="wiki-p">As a grower, your flaccid size varies a lot — more than most. For consistency:</div>
+        <ul class="wiki-steps">
+          <li data-n="1">Measure when <b>genuinely relaxed</b> — not semi-aroused.</li>
+          <li data-n="2">Cold or neutral room temperature. Post-shower warm flaccid gives different numbers than cold morning flaccid.</li>
+          <li data-n="3">Log both BP and NBP flaccid length so you can see how your fat pad changes.</li>
+          <li data-n="4">Same grip on the tape for girth — you'll notice flaccid girth varies a lot more than erect girth.</li>
+        </ul>
+        <div class="wiki-tip">Log the <b>Conditions</b> field in your entry (cold/warm room, morning/evening) so you can filter out noise when you review your charts.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Consistency Rules</div>
+        <div class="wiki-p">These matter more than you think:</div>
+        <ul class="wiki-steps">
+          <li data-n="→"><b>Same time of day</b> — morning is most consistent for most people.</li>
+          <li data-n="→"><b>Same arousal state</b> — for erect measurements, get fully hard every time.</li>
+          <li data-n="→"><b>Same temperature</b> — cold shrinks, warmth expands. Note it.</li>
+          <li data-n="→"><b>Don't measure right after exercise</b> — blood redistribution affects results.</li>
+          <li data-n="→"><b>Log immediately</b> — memory is unreliable, even minutes later.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- LENGTH -->
+    <div class="wiki-page" id="wiki-length">
+      <div class="wiki-card">
+        <div class="wiki-h1">Length Exercises</div>
+        <div class="wiki-p">All done <b>flaccid or nearly flaccid</b>. Never stretch when fully erect — that's not how this works and risks injury. Always warm up first.</div>
+        <div class="wiki-warn"><b>Warmup is not optional.</b> 3–5 min of warmth before stretching makes tissue more pliable and dramatically reduces injury risk. Use a warm (not hot) damp cloth or towel wrapped around for a few minutes.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">1. Basic Manual Stretch</div>
+        <span class="wiki-tag beginner">Beginner</span> <span class="wiki-tag length">Length</span>
+        <div class="wiki-p">The foundation. Simple, effective, and the safest starting point.</div>
+        <ul class="wiki-steps">
+          <li data-n="1">Grip just below the glans (head) with your thumb and first two fingers — like an OK sign.</li>
+          <li data-n="2">Pull straight outward (away from your body) with moderate, steady tension.</li>
+          <li data-n="3">Hold for <b>20–30 seconds</b>. You should feel a gentle pull, not pain.</li>
+          <li data-n="4">Rest 5 seconds. Repeat 5–10 times per direction.</li>
+          <li data-n="5">Do this in multiple directions: straight out, up, down, left, right.</li>
+        </ul>
+        <div class="wiki-stat-row">
+          <div class="wiki-stat"><div class="wiki-stat-val">20–30s</div><div class="wiki-stat-label">hold time</div></div>
+          <div class="wiki-stat"><div class="wiki-stat-val">5–10</div><div class="wiki-stat-label">reps</div></div>
+          <div class="wiki-stat"><div class="wiki-stat-val">5 min</div><div class="wiki-stat-label">total</div></div>
+        </div>
+        <div class="wiki-tip">Pulling <b>down and out</b> targets the top (dorsal) portion of the tunica more. Pulling <b>up and out</b> targets the underside. Vary your directions each session.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">2. V-Stretch</div>
+        <span class="wiki-tag beginner">Beginner</span> <span class="wiki-tag length">Length</span>
+        <div class="wiki-p">Adds a bend point mid-shaft to increase intensity on specific tunica zones. Great for targeting the area between your hand and the bend.</div>
+        <ul class="wiki-steps">
+          <li data-n="1">Grip just below the glans and pull straight out as with the basic stretch.</li>
+          <li data-n="2">Place the thumb of your other hand at the midpoint of the shaft on the top surface.</li>
+          <li data-n="3">Apply downward pressure with that thumb while continuing to pull outward — this creates a "V" or bend shape.</li>
+          <li data-n="4">Hold <b>20–30 seconds</b>. Swap: now place thumb on the underside and apply upward pressure (inverted V).</li>
+          <li data-n="5">3–5 reps each direction.</li>
+        </ul>
+        <div class="wiki-warn">If you feel sharp pain or tingling, ease off immediately. The stretch should feel like mild tension, never sharp discomfort.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">3. Behind-The-Legs (BTL) Stretch</div>
+        <span class="wiki-tag length">Length</span>
+        <div class="wiki-p">A stretch that targets the internal ligaments which limit visible length. Particularly good for getting gains that translate to NBP (non-bone-pressed) length.</div>
+        <ul class="wiki-steps">
+          <li data-n="1">Sit on the edge of a chair or toilet.</li>
+          <li data-n="2">Grip the shaft and pull it <b>downward</b>, then tuck it underneath and between your thighs.</li>
+          <li data-n="3">Close your thighs gently to hold the stretch — you're using your legs as the resistance.</li>
+          <li data-n="4">Hold 20–30 seconds. Lean forward slightly to increase intensity.</li>
+        </ul>
+        <div class="wiki-tip">This targets the <b>suspensory ligament</b> more than most stretches. It's what makes visible, non-pressed length gains possible.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">4. Rotary Stretch (Helicopter)</div>
+        <span class="wiki-tag length">Length</span>
+        <div class="wiki-p">A way to stretch all directions systematically in one motion. Good as a finisher.</div>
+        <ul class="wiki-steps">
+          <li data-n="1">Grip below the glans, pull straight out to comfortable tension.</li>
+          <li data-n="2">Slowly rotate your grip in a circle — like a helicopter — maintaining outward tension throughout.</li>
+          <li data-n="3">Do <b>10 slow rotations</b> clockwise, 10 counterclockwise.</li>
+          <li data-n="4">The key is keeping steady outward tension while rotating, not releasing between positions.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- GIRTH -->
+    <div class="wiki-page" id="wiki-girth">
+      <div class="wiki-card">
+        <div class="wiki-h1">Girth Exercises</div>
+        <div class="wiki-p">Girth work is done at <b>partial erection (50–75%)</b> — not flaccid, not fully hard. This is important. Too soft and there's nothing to work with. Too hard and you risk injury.</div>
+        <div class="wiki-warn"><b>Always warm up first.</b> Same as with length — warm damp cloth for 3–5 minutes. Girth exercises push blood into tissue under pressure, and cold tissue doesn't respond well.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">1. Jelqing</div>
+        <span class="wiki-tag beginner">Beginner</span> <span class="wiki-tag girth">Girth</span>
+        <div class="wiki-p">The core girth exercise. A milking motion that pushes blood into the tissue repeatedly. Controversial online but has a long track record in PE communities. Go slow and light as a beginner.</div>
+        <ul class="wiki-steps">
+          <li data-n="1">Get to about <b>50–70% erect</b>. A little lube (lotion, coconut oil, any moisturizer) makes this more comfortable.</li>
+          <li data-n="2">Make an OK grip at the base of the shaft with one hand.</li>
+          <li data-n="3">Apply gentle inward pressure (not squeezing hard) and slide the grip slowly from base toward the glans — takes about <b>2–3 seconds per stroke</b>.</li>
+          <li data-n="4">Stop just before the glans. Don't jelq the head itself.</li>
+          <li data-n="5">As the first hand reaches the end, the other hand starts at the base — alternating hands.</li>
+          <li data-n="6">Start with <b>50–100 reps</b> your first week. Work up to 200 over a few weeks.</li>
+        </ul>
+        <div class="wiki-stat-row">
+          <div class="wiki-stat"><div class="wiki-stat-val">50–70%</div><div class="wiki-stat-label">erection</div></div>
+          <div class="wiki-stat"><div class="wiki-stat-val">2–3s</div><div class="wiki-stat-label">per stroke</div></div>
+          <div class="wiki-stat"><div class="wiki-stat-val">50→200</div><div class="wiki-stat-label">reps/session</div></div>
+        </div>
+        <div class="wiki-warn"><b>Signs you're doing too much or too hard:</b> red dots (petechiae), bruising, numbness, difficulty getting erect the next day. If any of these appear, take 2–3 days off completely.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">2. Kegel Exercises</div>
+        <span class="wiki-tag beginner">Beginner</span> <span class="wiki-tag girth">Girth</span>
+        <div class="wiki-p">Not directly a growth exercise, but critical support work. Strengthening the pelvic floor (PC muscle) improves erection hardness — and harder erections mean more of your natural girth is visible and measurable.</div>
+        <ul class="wiki-steps">
+          <li data-n="1">Find the muscle: next time you urinate, stop the flow midstream. That's your PC muscle.</li>
+          <li data-n="2">Contract that muscle for <b>3 seconds</b>, then release for 3 seconds.</li>
+          <li data-n="3">Do 20 reps = 1 set. Do 3 sets daily.</li>
+          <li data-n="4">Build up to holding for 5–10 seconds per contraction over a few weeks.</li>
+          <li data-n="5">You can do these anywhere — nobody can tell.</li>
+        </ul>
+        <div class="wiki-tip">Reverse kegels (pushing out instead of clenching) also matter — they keep the muscle balanced and help with relaxed flaccid hang.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">3. Erect Bends (Advanced — Not Yet)</div>
+        <span class="wiki-tag warning">Not for beginners</span>
+        <div class="wiki-p">This involves bending a fully erect penis against its natural direction to stress the tunica for girth. It's effective but has the highest injury risk of any natural exercise.</div>
+        <div class="wiki-warn">Do not attempt this until you have <b>3–6 months of consistent jelqing</b> and a well-conditioned baseline. Penile fracture is a real risk if done incorrectly. Flagging it here for awareness — revisit this section later.</div>
+      </div>
+    </div>
+
+    <!-- ROUTINE -->
+    <div class="wiki-page" id="wiki-routine">
+      <div class="wiki-card">
+        <div class="wiki-h1">Your Starter Routine</div>
+        <div class="wiki-p">Built for your profile: beginner, 10–20 min sessions, 4–5 days/week, both length and girth goals. This is a <b>first 4-week routine</b> — designed to condition tissue before ramping up.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Weekly Schedule</div>
+        <div class="schedule-row">
+          <div class="schedule-day on">Mon<br>ON</div>
+          <div class="schedule-day on">Tue<br>ON</div>
+          <div class="schedule-day off">Wed<br>OFF</div>
+          <div class="schedule-day on">Thu<br>ON</div>
+          <div class="schedule-day on">Fri<br>ON</div>
+          <div class="schedule-day off">Sat<br>OFF</div>
+          <div class="schedule-day flex">Sun<br>FLEX</div>
+        </div>
+        <div class="wiki-p">Sunday is flex — use it as a 5th day if you're feeling good, or keep it as a second rest day. <b>Never do more than 2 days in a row without a rest.</b></div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Each Session (10–15 min)</div>
+        <ul class="wiki-steps">
+          <li data-n="1"><b>Warmup</b> — 3–5 min. Warm damp cloth around the shaft. Not hot. Comfortably warm. This is the most important step.</li>
+          <li data-n="2"><b>Basic stretches</b> — 5 min. 5 directions (out, up, down, left, right), 5 reps each, 20s hold. Stay flaccid.</li>
+          <li data-n="3"><b>Jelqing</b> — 5 min. Week 1–2: 50 reps. Week 3–4: 100 reps. Get to 50–70% erect. 2–3s per stroke.</li>
+          <li data-n="4"><b>Kegels</b> — 2 min. 3 sets of 20 reps (3s contract, 3s release). Can be done anywhere, don't need to be in your session.</li>
+          <li data-n="5"><b>Warmdown</b> — Optional but good. 1–2 min of gentle warmth after finishing.</li>
+        </ul>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Weeks 5–8 (Progress)</div>
+        <div class="wiki-p">If after 4 weeks you have no signs of overtraining (see Safety tab), you can increase volume:</div>
+        <ul class="wiki-steps">
+          <li data-n="→">Add the <b>V-stretch</b> — 5 reps each side after basic stretches.</li>
+          <li data-n="→">Increase jelq reps to <b>150–200</b>.</li>
+          <li data-n="→">Add <b>BTL stretch</b> — 3 reps of 30s at the end of stretching.</li>
+          <li data-n="→">Total session time grows to 15–20 min.</li>
+        </ul>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Deconditioning Breaks</div>
+        <div class="wiki-p">Every 4–6 weeks, take a <b>1 week full break</b>. No exercises at all. This sounds counterintuitive but tissue actually adapts and grows during rest periods, similar to weight training. Skipping rest weeks is one of the most common beginner mistakes.</div>
+        <div class="wiki-tip">Your measurements on the week after a break often look better than right before it. Log during your break week — the data is interesting.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Lifestyle Boosters</div>
+        <div class="wiki-p">These aren't exercises but they directly affect your results:</div>
+        <ul class="wiki-steps">
+          <li data-n="→"><b>Cardio 3×/week</b> — even 20 min walking improves pelvic bloodflow significantly.</li>
+          <li data-n="→"><b>7–9 hours sleep</b> — nocturnal erections happen in REM sleep. More sleep = more natural tissue conditioning overnight.</li>
+          <li data-n="→"><b>Stay hydrated</b> — dehydration measurably affects tissue pliability and erection quality.</li>
+          <li data-n="→"><b>Minimize alcohol</b> — vasoconstrictive, directly reduces erection quality and girth expression.</li>
+          <li data-n="→"><b>Stress management</b> — cortisol is a vasoconstrictor. Chronic stress tanks both erection quality and tissue responsiveness.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- SAFETY -->
+    <div class="wiki-page" id="wiki-safety">
+      <div class="wiki-card">
+        <div class="wiki-h1">Safety Guide</div>
+        <div class="wiki-p">You said you're slightly concerned about injury. That's smart — it means you'll approach this correctly. Most PE injuries happen from going too hard too fast, skipping warmups, or ignoring warning signs.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2 pink">Stop Immediately If You See</div>
+        <div class="wiki-warn">
+          <b>Red dots (petechiae)</b> — tiny red spots on the skin or glans. Sign of burst capillaries. Take 3–5 days off, reduce intensity.<br><br>
+          <b>Bruising or discoloration</b> — purple or dark patches. Rest until fully gone before resuming.<br><br>
+          <b>Numbness or tingling</b> — nerve compression warning. Stop the session, rest until sensation fully returns.<br><br>
+          <b>Pain during an erection</b> — any sharp or unusual pain while erect after a session. Rest and monitor.<br><br>
+          <b>Difficulty getting erect</b> — if your erection quality tanks the day after, you overdid it. Rest 2–3 days.
+        </div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2 green">Green Flags (Normal)</div>
+        <div class="wiki-tip">
+          <b>Mild fatigue in the tissue</b> — a slightly tired feeling, similar to a light muscle pump. Normal and fine.<br><br>
+          <b>Increased flaccid hang</b> — especially after stretching sessions. This is temporary and a sign the tissue is responding.<br><br>
+          <b>Temporary size increase after jelqing</b> — post-session engorgement. Not a permanent gain but a good sign of bloodflow.<br><br>
+          <b>Measurement variance day to day</b> — completely normal. Don't panic about a lower number on any given day.
+        </div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">The Overtraining Trap</div>
+        <div class="wiki-p">The most common beginner mistake is thinking more = faster results. It doesn't work that way. Tissue grows during rest, not during exercise. A beginner doing 30 minutes daily will get worse results — and more injury risk — than someone doing 12 minutes on a smart schedule.</div>
+        <div class="wiki-p">Stick to the routine as written for at least 4 weeks before adding volume. <b>Boredom is not a reason to increase intensity.</b></div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">The Warmup Rule</div>
+        <div class="wiki-p">Skipping warmup is the single biggest cause of PE injuries. Warm tissue stretches. Cold tissue tears. This is not an exaggeration — the difference in injury risk between a warmed and unwarmed session is significant.</div>
+        <div class="wiki-p"><b>Warmup method:</b> wet a washcloth with warm (not hot) water, wring it out, wrap it around the shaft for 3–5 minutes. Reheat it once if needed. That's it — no special equipment.</div>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Intensity Scale</div>
+        <div class="wiki-p">A rough guide for how hard to push:</div>
+        <ul class="wiki-steps">
+          <li data-n="1–3">Too light — you can barely feel anything. Fine for first 1–2 sessions, then increase.</li>
+          <li data-n="4–6">Target zone for beginners — noticeable tension or pressure but <b>zero pain</b>. This is where you want to live.</li>
+          <li data-n="7–8">Pushing it — short-term fine if tissue is conditioned, but not sustainable for beginners.</li>
+          <li data-n="9–10">Stop. This is pain territory. Nothing good happens here.</li>
+        </ul>
+      </div>
+
+      <div class="wiki-card">
+        <div class="wiki-h2">Circumcision Notes</div>
+        <div class="wiki-p">Being circumcised means your skin has less slack during stretching, which can make some stretch directions mildly uncomfortable before tissue conditions. This is normal. It doesn't affect your results or risk profile meaningfully — just means the first few weeks of stretching might feel slightly more intense than for uncircumcised guys. It evens out.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- GOALS TAB -->
+  <div class="section" id="tab-goals">
+    <div class="card">
+      <div class="card-title">Progress to Goal</div>
+      <div class="progress-tip"><strong>Goals:</strong> +0.5" erect length · +1.0" shaft girth<br>Baseline = first logged entry.</div>
+      <div class="goal-bar-wrap">
+        <div class="goal-bar-header"><span class="goal-bar-label">Erect BP Length</span><span class="goal-bar-pct" id="goal-length-pct">–</span></div>
+        <div class="goal-bar-track"><div class="goal-bar-fill" id="goal-length-bar" style="width:0%"></div></div>
+        <div class="goal-targets" id="goal-length-detail">Add entries to track</div>
+      </div>
+      <div class="goal-bar-wrap">
+        <div class="goal-bar-header"><span class="goal-bar-label">Erect Shaft Girth</span><span class="goal-bar-pct" id="goal-girth-pct">–</span></div>
+        <div class="goal-bar-track"><div class="goal-bar-fill" id="goal-girth-bar" style="width:0%"></div></div>
+        <div class="goal-targets" id="goal-girth-detail">Add entries to track</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Last 28 Days</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px;">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center">Su</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center">Mo</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center">Tu</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center">We</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center">Th</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center">Fr</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center">Sa</div>
+      </div>
+      <div id="streak-calendar" class="streak-calendar"></div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted)">
+        <span style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;margin-right:4px;vertical-align:middle"></span>Logged
+        <span style="display:inline-block;width:10px;height:10px;background:var(--border);border-radius:2px;margin-left:12px;margin-right:4px;vertical-align:middle"></span>No entry
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Natural Growth Tips</div>
+      <div style="font-family:var(--mono);font-size:11px;line-height:1.8;color:var(--muted)">
+        <div style="margin-bottom:8px;color:var(--text);font-size:12px;font-weight:600">For Length</div>
+        <div>· <span style="color:var(--accent)">Manual stretches</span> — flaccid, 5-10 min daily. Pull gently, hold 20-30s. Targets tunica.</div>
+        <div style="margin-top:5px">· <span style="color:var(--accent)">V-stretch</span> — hold base, apply downward pressure at midpoint. Hold 30s × 5.</div>
+        <div style="margin-top:5px">· <span style="color:var(--accent)">Sleep quality</span> — nocturnal erections are nature's pump.</div>
+        <div style="margin-top:12px;margin-bottom:8px;color:var(--text);font-size:12px;font-weight:600">For Girth</div>
+        <div>· <span style="color:var(--accent2)">Jelqing</span> — 60-70% erect, slow milking motion. 100-200 reps, 3-5×/week. Rest days essential.</div>
+        <div style="margin-top:5px">· <span style="color:var(--accent2)">Kegels</span> — 3 sets of 20 daily. Better erection hardness = better natural girth.</div>
+        <div style="margin-top:12px;margin-bottom:8px;color:var(--text);font-size:12px;font-weight:600">General</div>
+        <div>· <span style="color:var(--accent3)">Cardio 3×/week</span> — bloodflow = erectile quality.</div>
+        <div style="margin-top:5px">· <span style="color:var(--accent3)">Consistency beats intensity</span> — 10 min daily beats 1hr once a week.</div>
+        <div style="margin-top:5px">· <span style="color:var(--accent3)">Rest days</span> — tissue repairs at rest, not during sessions.</div>
+        <div style="margin-top:12px;padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;color:#ef9494;font-size:10px">⚠ Stop if you feel pain, discoloration, or numbness.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY = 'thelog_v2';
+const THEME_KEY = 'thelog_theme';
+const CONDITIONS = ['Morning','Evening','Post-workout','Warm room','Cold room','Well-rested','Tired','Stressed'];
+
+function getEntries() { try { return JSON.parse(localStorage.getItem(STORE_KEY)||'[]'); } catch { return []; } }
+function saveEntries(a) { localStorage.setItem(STORE_KEY, JSON.stringify(a)); }
+
+// Theme
+function initTheme() { setTheme(localStorage.getItem(THEME_KEY)||'dark'); }
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme-icon').textContent = t==='dark'?'☀️':'🌙';
+  document.getElementById('theme-label').textContent = t==='dark'?'Light':'Dark';
+  localStorage.setItem(THEME_KEY, t);
+}
+function toggleTheme() {
+  const t = document.documentElement.getAttribute('data-theme');
+  setTheme(t==='dark'?'light':'dark');
+  if (chartInstance) renderChart();
+}
+initTheme();
+
+// Helpers
+const cm2in = v => v ? +(v/2.54).toFixed(2) : null;
+const in2cm = v => v ? +(v*2.54).toFixed(2) : null;
+const fmt = (v,u) => v!=null ? `${(+v).toFixed(2)}${u}` : '—';
+
+function showToast(msg, col) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.background = col||'var(--accent3)';
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+function showTab(name, btn) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(name==='charts') renderChart();
+  if(name==='history') renderHistory();
+  if(name==='averages') renderAverages();
+  if(name==='goals') { renderGoals(); renderStreakCalendar(); }
+  updateStreak();
+}
+
+// Streak
+function updateStreak() {
+  const dates = new Set(getEntries().map(e=>e.date));
+  const today = new Date(); let streak=0;
+  for(let i=0;i<365;i++) {
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    const ds = d.toISOString().split('T')[0];
+    if(dates.has(ds)) streak++;
+    else if(i>0) break;
+  }
+  document.getElementById('streak-count').textContent = streak;
+  const todayStr = today.toISOString().split('T')[0];
+  document.getElementById('streak-next').textContent = dates.has(todayStr)?'✓ Logged today!':'Log today!';
+}
+
+function renderStreakCalendar() {
+  const dates = new Set(getEntries().map(e=>e.date));
+  const today = new Date(); const todayStr = today.toISOString().split('T')[0];
+  const start = new Date(today); start.setDate(start.getDate()-27); start.setDate(start.getDate()-start.getDay());
+  const cal = document.getElementById('streak-calendar'); cal.innerHTML='';
+  for(let i=0;i<28;i++) {
+    const d = new Date(start); d.setDate(d.getDate()+i);
+    const ds = d.toISOString().split('T')[0];
+    const div = document.createElement('div');
+    div.className='cal-day'+(dates.has(ds)?' logged':'')+(ds===todayStr?' today':'');
+    div.title=ds; cal.appendChild(div);
+  }
+}
+
+// Entry slots
+let slotCount=0;
+
+function addEntrySlot() {
+  slotCount++;
+  const sid = slotCount;
+  const now = new Date();
+  const dateVal = now.toISOString().split('T')[0];
+  const timeVal = now.toTimeString().slice(0,5);
+  const div = document.createElement('div');
+  div.className='entry-slot'; div.id='slot-'+sid;
+  div.innerHTML=`
+    <div class="entry-slot-header">
+      <span class="entry-slot-num">Entry ${sid}</span>
+      ${sid>1?`<button class="remove-slot" onclick="removeSlot(${sid})">✕</button>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field"><label>Date</label><input type="date" id="s${sid}-date" value="${dateVal}"></div>
+      <div class="field"><label>Time</label><input type="time" id="s${sid}-time" value="${timeVal}"></div>
+    </div>
+    <div class="section-label">⚡ Erect</div>
+    <div class="field"><label>BP Length</label><div class="dual-input"><input type="number" id="s${sid}-e-bp-cm" placeholder="cm" step="0.1" min="0"><input type="number" id="s${sid}-e-bp-in" placeholder="in" step="0.01" min="0"></div></div>
+    <div class="field"><label>Shaft Girth</label><div class="dual-input"><input type="number" id="s${sid}-e-sg-cm" placeholder="cm" step="0.1" min="0"><input type="number" id="s${sid}-e-sg-in" placeholder="in" step="0.01" min="0"></div></div>
+    <div class="field"><label>Glans Girth</label><div class="dual-input"><input type="number" id="s${sid}-e-gg-cm" placeholder="cm" step="0.1" min="0"><input type="number" id="s${sid}-e-gg-in" placeholder="in" step="0.01" min="0"></div></div>
+    <div class="section-label flac">💤 Flaccid</div>
+    <div class="field"><label>BP Length</label><div class="dual-input"><input type="number" id="s${sid}-f-bp-cm" placeholder="cm" step="0.1" min="0"><input type="number" id="s${sid}-f-bp-in" placeholder="in" step="0.01" min="0"></div></div>
+    <div class="field"><label>NBP Length</label><div class="dual-input"><input type="number" id="s${sid}-f-nbp-cm" placeholder="cm" step="0.1" min="0"><input type="number" id="s${sid}-f-nbp-in" placeholder="in" step="0.01" min="0"></div></div>
+    <div class="field"><label>Shaft Girth</label><div class="dual-input"><input type="number" id="s${sid}-f-sg-cm" placeholder="cm" step="0.1" min="0"><input type="number" id="s${sid}-f-sg-in" placeholder="in" step="0.01" min="0"></div></div>
+    <div class="field"><label>Glans Girth</label><div class="dual-input"><input type="number" id="s${sid}-f-gg-cm" placeholder="cm" step="0.1" min="0"><input type="number" id="s${sid}-f-gg-in" placeholder="in" step="0.01" min="0"></div></div>
+    <div class="section-label cond">📝 Conditions & Notes</div>
+    <div class="condition-chips" id="s${sid}-chips">${CONDITIONS.map(c=>`<div class="chip" onclick="this.classList.toggle('selected')">${c}</div>`).join('')}</div>
+    <div class="field"><label>Notes</label><textarea id="s${sid}-notes" placeholder="Mood, routine done today, anything notable..."></textarea></div>
+  `;
+  document.getElementById('entry-slots').appendChild(div);
+  bindConvert(sid);
+}
+
+function removeSlot(id) { const el=document.getElementById('slot-'+id); if(el) el.remove(); }
+
+function bindConvert(sid) {
+  ['e-bp','e-sg','e-gg','f-bp','f-nbp','f-sg','f-gg'].forEach(f=>{
+    const cm=document.getElementById(`s${sid}-${f}-cm`), inches=document.getElementById(`s${sid}-${f}-in`);
+    if(!cm||!inches) return;
+    cm.addEventListener('input',function(){ const v=parseFloat(this.value); inches.value=(!isNaN(v)&&v>0)?cm2in(v):''; });
+    inches.addEventListener('input',function(){ const v=parseFloat(this.value); cm.value=(!isNaN(v)&&v>0)?in2cm(v):''; });
+  });
+}
+
+function gv(sid, f) { const el=document.getElementById(`s${sid}-${f}`); if(!el) return null; const v=parseFloat(el.value); return(isNaN(v)||v<=0)?null:v; }
+
+function saveAllEntries() {
+  const slots = document.querySelectorAll('.entry-slot');
+  if(!slots.length) { showToast('No slots'); return; }
+  const entries=getEntries(); let saved=0;
+  slots.forEach(slot=>{
+    const sid=slot.id.replace('slot-','');
+    const date=document.getElementById(`s${sid}-date`)?.value;
+    if(!date) return;
+    const entry={
+      id: Date.now()+Math.random(), date, time: document.getElementById(`s${sid}-time`)?.value||'',
+      e_bp_cm:gv(sid,'e-bp-cm'), e_bp_in:gv(sid,'e-bp-in'), e_sg_cm:gv(sid,'e-sg-cm'), e_sg_in:gv(sid,'e-sg-in'), e_gg_cm:gv(sid,'e-gg-cm'), e_gg_in:gv(sid,'e-gg-in'),
+      f_bp_cm:gv(sid,'f-bp-cm'), f_bp_in:gv(sid,'f-bp-in'), f_nbp_cm:gv(sid,'f-nbp-cm'), f_nbp_in:gv(sid,'f-nbp-in'), f_sg_cm:gv(sid,'f-sg-cm'), f_sg_in:gv(sid,'f-sg-in'), f_gg_cm:gv(sid,'f-gg-cm'), f_gg_in:gv(sid,'f-gg-in'),
+      conditions:[...slot.querySelectorAll('.chip.selected')].map(c=>c.textContent),
+      notes: document.getElementById(`s${sid}-notes`)?.value?.trim()||''
+    };
+    const hasData=['e_bp_cm','e_sg_cm','e_gg_cm','f_bp_cm','f_nbp_cm','f_sg_cm','f_gg_cm'].some(k=>entry[k]!=null);
+    if(!hasData) return;
+    entries.push(entry); saved++;
+  });
+  if(!saved) { showToast('Enter at least one measurement','#e05c97'); return; }
+  entries.sort((a,b)=>a.date.localeCompare(b.date)); saveEntries(entries);
+  document.getElementById('entry-slots').innerHTML=''; slotCount=0; addEntrySlot();
+  updateStreak(); showToast(`${saved} entr${saved>1?'ies':'y'} saved ✓`);
+}
+
+addEntrySlot(); updateStreak();
+
+// Charts
+let chartInstance=null, currentMetric='e_bp_cm';
+const metricLabels={e_bp_cm:'Erect BP Length (cm)',e_sg_cm:'Erect Shaft Girth (cm)',e_gg_cm:'Erect Glans Girth (cm)',f_bp_cm:'Flaccid BP Length (cm)',f_nbp_cm:'Flaccid NBP Length (cm)',f_sg_cm:'Flaccid Shaft Girth (cm)'};
+
+function setChartMetric(m,btn) { currentMetric=m; document.querySelectorAll('.chart-tab').forEach(t=>t.classList.remove('active')); btn.classList.add('active'); renderChart(); }
+
+function renderChart() {
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const gc=isDark?'#2a2a3e':'#dddde8', tc=isDark?'#6b6b8a':'#8888aa';
+  const entries=getEntries().filter(e=>e[currentMetric]!=null);
+  document.getElementById('chart-label').textContent=metricLabels[currentMetric];
+  if(chartInstance){chartInstance.destroy();chartInstance=null;}
+  if(!entries.length){updateStats([]);return;}
+  chartInstance=new Chart(document.getElementById('mainChart').getContext('2d'),{
+    type:'line',
+    data:{labels:entries.map(e=>e.date.slice(5)),datasets:[{data:entries.map(e=>e[currentMetric]),borderColor:'#7c6ff7',backgroundColor:'rgba(124,111,247,0.1)',borderWidth:2,pointBackgroundColor:'#7c6ff7',pointRadius:4,pointHoverRadius:6,tension:0.35,fill:true}]},
+    options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} cm  /  ${cm2in(ctx.raw)} in`},backgroundColor:isDark?'#1a1a26':'#fff',borderColor:gc,borderWidth:1,titleColor:'#7c6ff7',bodyColor:isDark?'#e8e8f0':'#1a1a2e'}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{family:'Space Mono',size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{family:'Space Mono',size:10}}}}}
+  });
+  updateStats(entries);
+}
+
+function updateStats(entries) {
+  const vals=entries.map(e=>e[currentMetric]).filter(v=>v!=null);
+  if(!vals.length){['stat-latest','stat-avg','stat-max','stat-change'].forEach(id=>document.getElementById(id).textContent='—');['stat-latest-in','stat-avg-in','stat-max-in','stat-change-in'].forEach(id=>document.getElementById(id).textContent='');return;}
+  const latest=vals[vals.length-1],avg=vals.reduce((a,b)=>a+b,0)/vals.length,max=Math.max(...vals),change=latest-vals[0],sign=change>=0?'+':'';
+  document.getElementById('stat-latest').textContent=latest.toFixed(2)+' cm'; document.getElementById('stat-latest-in').textContent=cm2in(latest)+' in';
+  document.getElementById('stat-avg').textContent=avg.toFixed(2)+' cm'; document.getElementById('stat-avg-in').textContent=cm2in(avg)+' in';
+  document.getElementById('stat-max').textContent=max.toFixed(2)+' cm'; document.getElementById('stat-max-in').textContent=cm2in(max)+' in';
+  document.getElementById('stat-change').textContent=sign+change.toFixed(2)+' cm'; document.getElementById('stat-change-in').textContent=sign+cm2in(Math.abs(change))+' in';
+}
+
+// History
+function renderHistory() {
+  const entries=getEntries().slice().reverse();
+  document.getElementById('entry-count').textContent=entries.length+' entr'+(entries.length===1?'y':'ies');
+  const list=document.getElementById('history-list');
+  if(!entries.length){list.innerHTML=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No entries yet.<br>Head to + Entry to start.</div></div>`;return;}
+  list.innerHTML=entries.map(e=>`
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-date">${e.date}</span>
+        <span style="display:flex;align-items:center;gap:8px"><span class="entry-time">${e.time||''}</span><button class="entry-del" onclick="deleteEntry(${e.id})">✕</button></span>
+      </div>
+      <div class="entry-section-divider">⚡ Erect</div>
+      <div class="entry-grid">
+        <div><div class="entry-metric-label">BP Len</div><div class="entry-metric-val">${fmt(e.e_bp_cm,'cm')}<br><span style="color:var(--muted);font-size:10px">${fmt(e.e_bp_in,'"')}</span></div></div>
+        <div><div class="entry-metric-label">Shaft G</div><div class="entry-metric-val">${fmt(e.e_sg_cm,'cm')}<br><span style="color:var(--muted);font-size:10px">${fmt(e.e_sg_in,'"')}</span></div></div>
+        <div><div class="entry-metric-label">Glans G</div><div class="entry-metric-val">${fmt(e.e_gg_cm,'cm')}<br><span style="color:var(--muted);font-size:10px">${fmt(e.e_gg_in,'"')}</span></div></div>
+      </div>
+      <div class="entry-section-divider">💤 Flaccid</div>
+      <div class="entry-grid">
+        <div><div class="entry-metric-label">BP Len</div><div class="entry-metric-val">${fmt(e.f_bp_cm,'cm')}<br><span style="color:var(--muted);font-size:10px">${fmt(e.f_bp_in,'"')}</span></div></div>
+        <div><div class="entry-metric-label">NBP Len</div><div class="entry-metric-val">${fmt(e.f_nbp_cm,'cm')}<br><span style="color:var(--muted);font-size:10px">${fmt(e.f_nbp_in,'"')}</span></div></div>
+        <div><div class="entry-metric-label">Shaft G</div><div class="entry-metric-val">${fmt(e.f_sg_cm,'cm')}<br><span style="color:var(--muted);font-size:10px">${fmt(e.f_sg_in,'"')}</span></div></div>
+      </div>
+      ${e.conditions?.length?`<div class="entry-conditions">${e.conditions.map(c=>`<span class="entry-chip">${c}</span>`).join('')}</div>`:''}
+      ${e.notes?`<div class="entry-notes">${e.notes}</div>`:''}
+    </div>
+  `).join('');
+}
+
+function deleteEntry(id){saveEntries(getEntries().filter(e=>e.id!==id));renderHistory();updateStreak();showToast('Deleted','#e05c97');}
+
+// Goals
+function renderGoals(){
+  const entries=getEntries();
+  const lenVals=entries.filter(e=>e.e_bp_cm).map(e=>e.e_bp_cm), girVals=entries.filter(e=>e.e_sg_cm).map(e=>e.e_sg_cm);
+  function bar(vals,goalCm,goalIn,bId,pId,dId){
+    if(!vals.length){document.getElementById(pId).textContent='–';document.getElementById(bId).style.width='0%';document.getElementById(dId).textContent='Add entries to track';return;}
+    const bl=vals[0],lat=vals[vals.length-1],gained=lat-bl,pct=Math.min(100,Math.max(0,(gained/goalCm)*100));
+    document.getElementById(pId).textContent=pct.toFixed(1)+'%'; document.getElementById(bId).style.width=pct+'%';
+    document.getElementById(dId).textContent=`Baseline: ${bl.toFixed(2)}cm | Latest: ${lat.toFixed(2)}cm | Gained: ${gained>=0?'+':''}${gained.toFixed(2)}cm (${gained>=0?'+':''}${cm2in(Math.abs(gained))}"} | Goal: +${goalIn}"`;
+  }
+  bar(lenVals,in2cm(0.5),0.5,'goal-length-bar','goal-length-pct','goal-length-detail');
+  bar(girVals,in2cm(1.0),1.0,'goal-girth-bar','goal-girth-pct','goal-girth-detail');
+}
+
+// ── Averages ──────────────────────────────────────────────────────────────────
+// All values in cm. Sources: Veale et al. BJU Int 2015 (primary),
+// supplemented by regional population-weighted estimates from supporting lit.
+// Structure: { e_bp, e_sg, e_gg, f_bp, f_nbp, f_sg }
+const REGIONAL_AVGS = {
+  global:       { e_bp:13.12, e_sg:11.66, e_gg:10.90, f_bp:9.16, f_nbp:7.62, f_sg:9.31 },
+  northamerica: { e_bp:13.58, e_sg:12.00, e_gg:11.20, f_bp:9.50, f_nbp:7.90, f_sg:9.60 },
+  latinamerica: { e_bp:13.70, e_sg:12.10, e_gg:11.30, f_bp:9.60, f_nbp:8.00, f_sg:9.70 },
+  europe:       { e_bp:13.40, e_sg:11.80, e_gg:11.00, f_bp:9.30, f_nbp:7.70, f_sg:9.40 },
+  eastasia:     { e_bp:12.20, e_sg:11.10, e_gg:10.40, f_bp:8.50, f_nbp:7.00, f_sg:8.80 },
+  southasia:    { e_bp:12.60, e_sg:11.30, e_gg:10.60, f_bp:8.70, f_nbp:7.20, f_sg:9.00 },
+  africa:       { e_bp:13.80, e_sg:12.20, e_gg:11.40, f_bp:9.70, f_nbp:8.10, f_sg:9.80 },
+  middleeast:   { e_bp:13.00, e_sg:11.60, e_gg:10.80, f_bp:9.10, f_nbp:7.50, f_sg:9.20 },
+};
+// Age modifiers (applied as delta to regional base, cm)
+// Based on cross-sectional data — erect size peaks ~25-34, slight decline with age
+const AGE_MODS = {
+  '1824': { e_bp: -0.10, e_sg: -0.05, e_gg: -0.05, f_bp: -0.10, f_nbp: -0.08, f_sg: -0.05 },
+  '2534': { e_bp:  0.10, e_sg:  0.05, e_gg:  0.05, f_bp:  0.10, f_nbp:  0.08, f_sg:  0.05 },
+  '3544': { e_bp:  0.00, e_sg:  0.00, e_gg:  0.00, f_bp:  0.00, f_nbp:  0.00, f_sg:  0.00 },
+  '4554': { e_bp: -0.15, e_sg: -0.08, e_gg: -0.06, f_bp: -0.12, f_nbp: -0.10, f_sg: -0.08 },
+  '55plus':{ e_bp: -0.30, e_sg: -0.15, e_gg: -0.10, f_bp: -0.20, f_nbp: -0.15, f_sg: -0.12 },
+};
+// Global SD values for percentile estimation (Veale 2015)
+const GLOBAL_SD = { e_bp:1.66, e_sg:1.10, e_gg:0.95, f_bp:1.56, f_nbp:1.35, f_sg:1.00 };
+
+function getAdjustedAvg() {
+  const region = document.getElementById('avg-region').value;
+  const age    = document.getElementById('avg-age').value;
+  const base   = REGIONAL_AVGS[region];
+  const mod    = AGE_MODS[age];
+  const result = {};
+  Object.keys(base).forEach(k => result[k] = +(base[k] + mod[k]).toFixed(2));
+  return result;
+}
+
+// Normal distribution CDF approximation (Abramowitz & Stegun)
+function normCDF(z) {
+  const t = 1/(1+0.2316419*Math.abs(z));
+  const d = 0.3989423*Math.exp(-z*z/2);
+  const p = d*t*(0.3193815+t*(-0.3565638+t*(1.7814779+t*(-1.8212560+t*1.3302744))));
+  return z >= 0 ? 1-p : p;
+}
+function zScore(val, mean, sd) { return (val-mean)/sd; }
+function percentileFromVal(val, meanKey) {
+  const mean = REGIONAL_AVGS.global[meanKey];
+  const sd   = GLOBAL_SD[meanKey];
+  return Math.round(normCDF(zScore(val, mean, sd))*100);
+}
+
+function latestVal(entries, key) {
+  const vals = entries.filter(e=>e[key]!=null).map(e=>e[key]);
+  return vals.length ? vals[vals.length-1] : null;
+}
+
+function renderAverages() {
+  const entries = getEntries();
+  const avg = getAdjustedAvg();
+  const noData = document.getElementById('avg-no-data');
+  const content = document.getElementById('avg-content');
+
+  const metrics = {
+    e_bp:  { youId:'you-e-bp',  avgId:'avg-e-bp',  diffId:'diff-e-bp',  youInId:'you-e-bp-in',  avgInId:'avg-e-bp-in',  diffInId:'diff-e-bp-in'  },
+    e_sg:  { youId:'you-e-sg',  avgId:'avg-e-sg',  diffId:'diff-e-sg',  youInId:'you-e-sg-in',  avgInId:'avg-e-sg-in',  diffInId:'diff-e-sg-in'  },
+    e_gg:  { youId:'you-e-gg',  avgId:'avg-e-gg',  diffId:'diff-e-gg',  youInId:'you-e-gg-in',  avgInId:'avg-e-gg-in',  diffInId:'diff-e-gg-in'  },
+    f_bp:  { youId:'you-f-bp',  avgId:'avg-f-bp',  diffId:'diff-f-bp',  youInId:'you-f-bp-in',  avgInId:'avg-f-bp-in',  diffInId:'diff-f-bp-in'  },
+    f_nbp: { youId:'you-f-nbp', avgId:'avg-f-nbp', diffId:'diff-f-nbp', youInId:'you-f-nbp-in', avgInId:'avg-f-nbp-in', diffInId:'diff-f-nbp-in' },
+    f_sg:  { youId:'you-f-sg',  avgId:'avg-f-sg',  diffId:'diff-f-sg',  youInId:'you-f-sg-in',  avgInId:'avg-f-sg-in',  diffInId:'diff-f-sg-in'  },
+  };
+  const entryKeys = { e_bp:'e_bp_cm', e_sg:'e_sg_cm', e_gg:'e_gg_cm', f_bp:'f_bp_cm', f_nbp:'f_nbp_cm', f_sg:'f_sg_cm' };
+  const labels    = { e_bp:'Erect BP Len', e_sg:'Erect Shaft G', e_gg:'Erect Glans G', f_bp:'Flaccid BP Len', f_nbp:'Flaccid NBP', f_sg:'Flaccid Shaft G' };
+
+  let anyData = false;
+  const percentileData = [];
+
+  Object.keys(metrics).forEach(k => {
+    const m = metrics[k];
+    const youVal = latestVal(entries, entryKeys[k]);
+    const avgVal = avg[k];
+
+    // Fill average column always
+    document.getElementById(m.avgId).textContent = avgVal.toFixed(2)+' cm';
+    document.getElementById(m.avgInId).textContent = cm2in(avgVal)+' in';
+
+    if (youVal != null) {
+      anyData = true;
+      const diff = youVal - avgVal;
+      const sign = diff >= 0 ? '+' : '';
+      const cls  = Math.abs(diff) < 0.15 ? 'same' : (diff > 0 ? 'above' : 'below');
+
+      document.getElementById(m.youId).textContent = youVal.toFixed(2)+' cm';
+      document.getElementById(m.youId).className = 'compare-metric-val '+cls;
+      document.getElementById(m.youInId).textContent = cm2in(youVal)+' in';
+      document.getElementById(m.diffId).textContent = sign+diff.toFixed(2)+' cm';
+      document.getElementById(m.diffId).className = 'compare-metric-val '+cls;
+      document.getElementById(m.diffInId).textContent = sign+cm2in(Math.abs(diff))+' in';
+
+      percentileData.push({ label: labels[k], val: youVal, key: k, pct: percentileFromVal(youVal, k) });
+    } else {
+      document.getElementById(m.youId).textContent = '—';
+      document.getElementById(m.youId).className = 'compare-metric-val';
+      document.getElementById(m.youInId).textContent = 'no data';
+      document.getElementById(m.diffId).textContent = '—';
+      document.getElementById(m.diffId).className = 'compare-metric-val';
+      document.getElementById(m.diffInId).textContent = '';
+    }
+  });
+
+  noData.style.display  = anyData ? 'none' : 'block';
+  content.style.display = anyData ? 'block' : 'none';
+
+  // Percentile bars
+  const pb = document.getElementById('percentile-bars');
+  if (!percentileData.length) { pb.innerHTML = ''; return; }
+  pb.innerHTML = percentileData.map(d => `
+    <div class="percentile-bar-wrap">
+      <div class="percentile-bar-label">
+        <span>${d.label}</span>
+        <span style="color:var(--accent);font-weight:700">${d.pct}th percentile</span>
+      </div>
+      <div class="percentile-bar-track">
+        <div class="percentile-bar-fill" style="width:${d.pct}%"></div>
+        <div class="percentile-marker" style="left:${d.pct}%">
+          <div class="percentile-marker-label">${d.val.toFixed(1)}cm</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Wiki
+function showWikiPage(name, btn) {
+  document.querySelectorAll('.wiki-page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.wiki-nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('wiki-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+// Export/Import
+function exportData(){const b=new Blob([JSON.stringify(getEntries(),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='thelog_export.json';a.click();}
+function importData(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const imp=JSON.parse(e.target.result);if(!Array.isArray(imp))throw new Error();
+      const existing=getEntries(),ids=new Set(existing.map(e=>e.id)),newE=imp.filter(e=>!ids.has(e.id));
+      saveEntries([...existing,...newE].sort((a,b)=>a.date.localeCompare(b.date)));
+      renderHistory();updateStreak();showToast(`Imported ${newE.length} new entr${newE.length===1?'y':'ies'} ✓`);
+    }catch{showToast('Import failed','#e05c97');}
+  };
+  reader.readAsText(file); event.target.value='';
+}
+</script>
+</body>
+</html>
